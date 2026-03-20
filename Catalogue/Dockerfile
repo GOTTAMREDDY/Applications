@@ -4,22 +4,19 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install
+RUN npm ci --only=production
 
-COPY . .
+COPY server.js ./
 
-# Stage 2: Runtime
-FROM node:18-slim
+# Stage 2: Runtime (Alpine for small size)
+FROM node:18-alpine
 
 WORKDIR /app
 
-# Create user again (important)
-RUN addgroup --system dev && adduser --system --ingroup dev robo
+RUN addgroup -S dev && adduser -S robo -G dev
 
-# Copy built app
 COPY --from=builder /app /app
 
-# Set ownership (important for permissions)
 RUN chown -R robo:dev /app
 
 USER robo
