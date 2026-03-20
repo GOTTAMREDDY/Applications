@@ -1,95 +1,154 @@
+version: "3.9"
+
 networks:
   default:
     external:
       name: roboshop
+
 volumes:
-  mongodb: #docker volume create mongodb
+  mongodb:
   redis:
   mysql:
   rabbitmq:
+
 services:
-  # docker run -d --name mongodb --network=roboshop mongodb:1
+
+  # -------------------------
+  # MongoDB
+  # -------------------------
   mongodb:
-    image: mongodb:v1
+    build:
+      context: ./mongodb
+      dockerfile: Dockerfile
+      target: runtime  # optional if multi-stage
     container_name: mongodb
     volumes:
-    - source: mongodb
-      target: /data/db
-      type: volume
-    # networks:
-    # - roboshop
+      - mongodb:/data/db
+    networks:
+      - default
 
+  # -------------------------
+  # Catalogue
+  # -------------------------
   catalogue:
-    image: catalogue:v1
+    build:
+      context: ./catalogue
+      dockerfile: Dockerfile
     container_name: catalogue
-    # networks:
-    # - roboshop
     depends_on:
-    - mongodb
+      - mongodb
+    networks:
+      - default
 
+  # -------------------------
+  # Web (Nginx)
+  # -------------------------
   web:
-    image: web:v1
+    build:
+      context: ./web
+      dockerfile: Dockerfile
     container_name: web
     ports:
-    - "80:80"
+      - "80:80"
     depends_on:
-    - catalogue
-    - cart
-    - user
-    - shipping
-    - payment
+      - catalogue
+      - cart
+      - user
+      - shipping
+      - payment
+    networks:
+      - default
 
+  # -------------------------
+  # Redis
+  # -------------------------
   redis:
     image: redis
     container_name: redis
     volumes:
-    - source: redis
-      target: /data
-      type: volume
+      - redis:/data
+    networks:
+      - default
 
+  # -------------------------
+  # User
+  # -------------------------
   user:
-    image: user:v1
+    build:
+      context: ./user
+      dockerfile: Dockerfile
     container_name: user
     depends_on:
-    - redis
-    - mongodb
+      - redis
+      - mongodb
+    networks:
+      - default
 
+  # -------------------------
+  # Cart
+  # -------------------------
   cart:
-    image: cart:v1
+    build:
+      context: ./cart
+      dockerfile: Dockerfile
     container_name: cart
     depends_on:
-    - redis
-    - catalogue
+      - redis
+      - catalogue
+    networks:
+      - default
 
+  # -------------------------
+  # MySQL
+  # -------------------------
   mysql:
-    image: mysql:v1
+    build:
+      context: ./mysql
+      dockerfile: Dockerfile
     container_name: mysql
     volumes:
-    - source: mysql
-      target: /var/lib/mysql
-      type: volume
+      - mysql:/var/lib/mysql
+    networks:
+      - default
 
+  # -------------------------
+  # Shipping
+  # -------------------------
   shipping:
-    image: shipping:v1
+    build:
+      context: ./shipping
+      dockerfile: Dockerfile
     container_name: shipping
     depends_on:
-    - mysql
+      - mysql
+    networks:
+      - default
 
+  # -------------------------
+  # RabbitMQ
+  # -------------------------
   rabbitmq:
-    container_name: rabbitmq
     image: rabbitmq
+    container_name: rabbitmq
     environment:
-    - RABBITMQ_DEFAULT_USER=roboshop
-    - RABBITMQ_DEFAULT_PASS=roboshop123
+      RABBITMQ_DEFAULT_USER: roboshop
+      RABBITMQ_DEFAULT_PASS: roboshop123
     volumes:
-    - source: rabbitmq
-      target: /var/lib/rabbitmq
-      type: volume
+      - rabbitmq:/var/lib/rabbitmq
+    networks:
+      - default
 
+  # -------------------------
+  # Payment
+  # -------------------------
   payment:
+    build:
+      context: ./payment
+      dockerfile: Dockerfile
     container_name: payment
-    image: payment:v1
     depends_on:
-    - rabbitmq
-    - user
-    - cart
+      - rabbitmq
+      - user
+      - cart
+    networks:
+      - default
