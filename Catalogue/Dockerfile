@@ -14,7 +14,7 @@ FROM node:18-slim
 WORKDIR /app
 
 # Create user again (important)
-RUN addgroup -S dev && adduser -S robo -G dev
+RUN addgroup --system dev && adduser --system --ingroup dev robo
 
 # Copy built app
 COPY --from=builder /app /app
