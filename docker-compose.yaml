@@ -18,7 +18,7 @@ services:
   # -------------------------
   mongodb:
     build:
-      context: ./mongodb
+      context: ./mongoDB
       dockerfile: Dockerfile
       target: runtime  # optional if multi-stage
     container_name: mongodb
