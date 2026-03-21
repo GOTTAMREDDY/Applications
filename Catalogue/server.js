@@ -13,7 +13,7 @@ const logger = pino({
 const expLogger = expPino({
     logger: logger
 });
-
+// imagine this as developer changing the code
 // MongoDB
 var db;
 var collection;
@@ -34,7 +34,7 @@ app.use(bodyParser.json());
 
 app.get('/health', (req, res) => {
     var stat = {
-        app: 'OK',
+        app: 'OKK',
         mongo: mongoConnected
     };
     res.json(stat);

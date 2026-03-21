@@ -1,137 +1,96 @@
-version: "3.9"
-
 networks:
   default:
     external:
       name: roboshop
-
 volumes:
-  mongodb:
+  mongodb: #docker volume create mongodb
   redis:
   mysql:
   rabbitmq:
-
 services:
-
-  # -------------------------
-  # MongoDB
-  # -------------------------
+  # docker run -d --name mongodb --network=roboshop mongodb:1
   mongodb:
-    build: ./MongoDB
+    build: ./mongodb
     container_name: mongodb
     volumes:
-      - mongodb:/data/db
-    networks:
-      - default
+    - source: mongodb
+      target: /data/db
+      type: volume
+    # networks:
+    # - roboshop
 
-  # -------------------------
-  # Catalogue
-  # -------------------------
   catalogue:
-    build: ./Catalogue   
+    build: ./catalogue
     container_name: catalogue
+    # networks:
+    # - roboshop
     depends_on:
-      - mongodb
-    networks:
-      - default
+    - mongodb
 
-  # -------------------------
-  # Web (Nginx)
-  # -------------------------
   web:
-    build: ./Web
+    build: ./web
     container_name: web
     ports:
-      - "80:80"
+    - "80:80"
     depends_on:
-      - catalogue
-      - cart
-      - user
-      - shipping
-      - payment
-    networks:
-      - default
+    - catalogue
+    - cart
+    - user
+    - shipping
+    - payment
 
-  # -------------------------
-  # Redis
-  # -------------------------
   redis:
     image: redis
     container_name: redis
     volumes:
-      - redis:/data
-    networks:
-      - default
+    - source: redis
+      target: /data
+      type: volume
 
-  # -------------------------
-  # User
-  # -------------------------
   user:
-    build: ./User
+    build: ./user
     container_name: user
     depends_on:
-      - redis
-      - mongodb
-    networks:
-      - default
+    - redis
+    - mongodb
 
-  # -------------------------
-  # Cart
-  # -------------------------
   cart:
-    build: ./Cart
+    build: ./cart
     container_name: cart
     depends_on:
-      - redis
-      - catalogue
-    networks:
-      - default
+    - redis
+    - catalogue
 
-  # -------------------------
-  # MySQL
-  # -------------------------
   mysql:
-    build: ./Mysql
+    build: ./mysql
     container_name: mysql
     volumes:
-      - mysql:/var/lib/mysql
-    networks:
-      - default
+    - source: mysql
+      target: /var/lib/mysql
+      type: volume
 
-  # -------------------------
-  # Shipping
-  # -------------------------
   shipping:
-    build: ./Shipping
+    build: ./shipping
     container_name: shipping
     depends_on:
-      - mysql
-    networks:
-      - default
+    - mysql
 
-  # -------------------------
-  # RabbitMQ
-  # -------------------------
   rabbitmq:
-    image: rabbitmq
     container_name: rabbitmq
+    image: rabbitmq
     environment:
-      RABBITMQ_DEFAULT_USER: roboshop
-      RABBITMQ_DEFAULT_PASS: roboshop123
+    - RABBITMQ_DEFAULT_USER=roboshop
+    - RABBITMQ_DEFAULT_PASS=roboshop123
     volumes:
-      - rabbitmq:/var/lib/rabbitmq
-    networks:
-      - default
+    - source: rabbitmq
+      target: /var/lib/rabbitmq
+      type: volume
 
-  # -------------------------
-  # Payment
-  # -------------------------
   payment:
-    build: ./Payment
     container_name: payment
+    build: ./payment
     depends_on:
-      - rabbitmq
-      - user
-      - cart
-    networks:
-      - default
+    - rabbitmq
+    - user
+    - cart
+
