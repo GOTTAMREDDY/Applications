@@ -1,27 +1,24 @@
+# -------- Stage 1 --------
 FROM python:3.9-slim AS builder
+
+WORKDIR /install
+COPY requirements.txt .
+RUN pip install --prefix=/install -r requirements.txt
+
+# -------- Stage 2 --------
+FROM python:3.9-slim
 
 WORKDIR /app
 
 RUN addgroup --system roboshop && adduser --system --ingroup roboshop roboshop
 
-COPY --from=builder /install /app
+COPY --from=builder /install /usr/local
 COPY . .
 
-# 🔥 FIX: add this line
-ENV PATH="/app/bin:$PATH"
+ENV PATH="/usr/local/bin:$PATH"
 
 RUN chown -R roboshop:roboshop /app
-
 USER roboshop
 
-ENV CART_HOST=cart \
-    CART_PORT=8080 \
-    USER_HOST=user \
-    USER_PORT=8080 \
-    AMQP_HOST=rabbitmq \
-    AMQP_USER=roboshop \
-    AMQP_PASS=roboshop123
-
 EXPOSE 8080
-
 CMD ["uwsgi", "--ini", "payment.ini"]

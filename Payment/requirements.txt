@@ -5,4 +5,3 @@ pika
 prometheus_client
 opentracing
 instana
-uwsgi
