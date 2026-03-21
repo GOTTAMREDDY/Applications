@@ -1,34 +1,28 @@
-# Stage 1: Build
-FROM maven:3.9.6-eclipse-temurin-17 AS builder
 
-WORKDIR /app
+#Build
 
-# Copy only pom.xml
-COPY pom.xml .
+FROM maven AS build
 
-# Download dependencies (cached layer)
-RUN mvn dependency:go-offline
+WORKDIR /opt/shipping
 
-# Copy source
-COPY . .
+COPY pom.xml /opt/shipping/
+RUN mvn dependency:resolve
+COPY src /opt/shipping/src/
+RUN mvn package
 
-# Build
-RUN mvn clean package
-
-# Stage 2: Runtime
-FROM eclipse-temurin:17-jre-alpine
-
-WORKDIR /app
-
-COPY --from=builder /app/target/shipping-1.0.jar /app/shipping.jar
-RUN addgroup -S dev && adduser -S robo -G dev
-ENV  CART_ENDPOINT=cart:8080 \
-     DB_HOST=mysql
-
-RUN chown -R robo:dev /app
-
-USER robo
+#
+# Run
+#
+FROM openjdk:8-jre-alpine3.9
 
 EXPOSE 8080
 
-CMD ["java", "-jar", "shipping.jar"]
+WORKDIR /opt/shipping
+
+ENV CART_ENDPOINT=cart:8080
+ENV DB_HOST=mysql
+
+COPY --from=build /opt/shipping/target/shipping-1.0.jar shipping.jar
+
+CMD [ "java", "-Xmn256m", "-Xmx768m", "-jar", "shipping.jar" ]
+
