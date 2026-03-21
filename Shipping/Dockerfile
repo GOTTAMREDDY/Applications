@@ -1,4 +1,3 @@
-
 #Build
 
 FROM maven AS build
@@ -13,7 +12,7 @@ RUN mvn package
 #
 # Run
 #
-FROM openjdk:8-jre-alpine3.9
+FROM eclipse-temurin:17-jre-alpine
 
 EXPOSE 8080
 
