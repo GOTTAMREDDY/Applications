@@ -1,386 +1,163 @@
 const redis = require('redis');
-const request = require('request');
+const axios = require('axios');
 const bodyParser = require('body-parser');
 const express = require('express');
 const pino = require('pino');
-const expPino = require('express-pino-logger');
+const pinoHttp = require('pino-http');
+
 // Prometheus
 const promClient = require('prom-client');
-const Registry = promClient.Registry;
-const register = new Registry();
+const register = new promClient.Registry();
 const counter = new promClient.Counter({
     name: 'items_added',
     help: 'running count of items added to cart',
     registers: [register]
 });
 
+let redisConnected = false;
 
-var redisConnected = false;
+const redisHost = process.env.REDIS_HOST || 'redis';
+const catalogueHost = process.env.CATALOGUE_HOST || 'catalogue';
+const cataloguePort = process.env.CATALOGUE_PORT || '8080';
 
-var redisHost = process.env.REDIS_HOST || 'redis'
-var catalogueHost = process.env.CATALOGUE_HOST || 'catalogue'
-var cataloguePort = process.env.CATALOGUE_PORT || '8080'
-
-
-const logger = pino({
-    level: 'info',
-    prettyPrint: false,
-    useLevelLabels: true
-});
-const expLogger = expPino({
-    logger: logger
-});
+const logger = pino({ level: 'info' });
 
 const app = express();
-
-app.use(expLogger);
-
-app.use((req, res, next) => {
-    res.set('Timing-Allow-Origin', '*');
-    res.set('Access-Control-Allow-Origin', '*');
-    next();
-});
+app.use(pinoHttp({ logger }));
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
+// Redis Client (v4 FIX)
+const redisClient = redis.createClient({
+    url: `redis://${redisHost}:6379`
+});
+
+redisClient.on('error', (err) => {
+    logger.error('Redis ERROR', err);
+});
+
+(async () => {
+    try {
+        await redisClient.connect();
+        redisConnected = true;
+        logger.info('Redis Connected');
+    } catch (err) {
+        logger.error('Redis Connection Failed', err);
+    }
+})();
+
+// Health
 app.get('/health', (req, res) => {
-    var stat = {
+    res.json({
         app: 'OK',
         redis: redisConnected
-    };
-    res.json(stat);
-});
-
-// Prometheus
-app.get('/metrics', (req, res) => {
-    res.header('Content-Type', 'text/plain');
-    res.send(register.metrics());
-});
-
-
-// get cart with id
-app.get('/cart/:id', (req, res) => {
-    redisClient.get(req.params.id, (err, data) => {
-        if(err) {
-            req.log.error('ERROR', err);
-            res.status(500).send(err);
-        } else {
-            if(data == null) {
-                res.status(404).send('cart not found');
-            } else {
-                res.set('Content-Type', 'application/json');
-                res.send(data);
-            }
-        }
     });
 });
 
-// delete cart with id
-app.delete('/cart/:id', (req, res) => {
-    redisClient.del(req.params.id, (err, data) => {
-        if(err) {
-            req.log.error('ERROR', err);
-            res.status(500).send(err);
-        } else {
-            if(data == 1) {
-                res.send('OK');
-            } else {
-                res.status(404).send('cart not found');
-            }
-        }
-    });
+// Metrics
+app.get('/metrics', async (req, res) => {
+    res.set('Content-Type', register.contentType);
+    res.end(await register.metrics());
 });
 
-// rename cart i.e. at login
-app.get('/rename/:from/:to', (req, res) => {
-    redisClient.get(req.params.from, (err, data) => {
-        if(err) {
-            req.log.error('ERROR', err);
-            res.status(500).send(err);
-        } else {
-            if(data == null) {
-                res.status(404).send('cart not found');
-            } else {
-                var cart = JSON.parse(data);
-                saveCart(req.params.to, cart).then((data) => {
-                    res.json(cart);
-                }).catch((err) => {
-                    req.log.error(err);
-                    res.status(500).send(err);
-                });
-            }
-        }
-    });
-});
-
-// update/create cart
-app.get('/add/:id/:sku/:qty', (req, res) => {
-    // check quantity
-    var qty = parseInt(req.params.qty);
-    if(isNaN(qty)) {
-        req.log.warn('quantity not a number');
-        res.status(400).send('quantity must be a number');
-        return;
-    } else if(qty < 1) {
-        req.log.warn('quantity less than one');
-        res.status(400).send('quantity has to be greater than zero');
-        return;
-    }
-
-    // look up product details
-    getProduct(req.params.sku).then((product) => {
-        req.log.info('got product', product);
-        if(!product) {
-            res.status(404).send('product not found');
-            return;
-        }
-        // is the product in stock?
-        if(product.instock == 0) {
-            res.status(404).send('out of stock');
-            return;
-        }
-        // does the cart already exist?
-        redisClient.get(req.params.id, (err, data) => {
-            if(err) {
-                req.log.error('ERROR', err);
-                res.status(500).send(err);
-            } else {
-                var cart;
-                if(data == null) {
-                    // create new cart
-                    cart = {
-                        total: 0,
-                        tax: 0,
-                        items: []
-                    };
-                } else {
-                    cart = JSON.parse(data);
-                }
-                req.log.info('got cart', cart);
-                // add sku to cart
-                var item = {
-                    qty: qty,
-                    sku: req.params.sku,
-                    name: product.name,
-                    price: product.price,
-                    subtotal: qty * product.price
-                };
-                var list = mergeList(cart.items, item, qty);
-                cart.items = list;
-                cart.total = calcTotal(cart.items);
-                // work out tax
-                cart.tax = calcTax(cart.total);
-
-                // save the new cart
-                saveCart(req.params.id, cart).then((data) => {
-                    counter.inc(qty);
-                    res.json(cart);
-                }).catch((err) => {
-                    req.log.error(err);
-                    res.status(500).send(err);
-                });
-            }
-        });
-    }).catch((err) => {
+// GET cart
+app.get('/cart/:id', async (req, res) => {
+    try {
+        const data = await redisClient.get(req.params.id);
+        if (!data) return res.status(404).send('cart not found');
+        res.json(JSON.parse(data));
+    } catch (err) {
         req.log.error(err);
         res.status(500).send(err);
-    });
+    }
 });
 
-// update quantity - remove item when qty == 0
-app.get('/update/:id/:sku/:qty', (req, res) => {
-    // check quantity
-    var qty = parseInt(req.params.qty);
-    if(isNaN(qty)) {
-        req.log.warn('quanity not a number');
-        res.status(400).send('quantity must be a number');
-        return;
-    } else if(qty < 0) {
-        req.log.warn('quantity less than zero');
-        res.status(400).send('negative quantity not allowed');
-        return;
+// DELETE cart
+app.delete('/cart/:id', async (req, res) => {
+    try {
+        const result = await redisClient.del(req.params.id);
+        if (result === 1) return res.send('OK');
+        res.status(404).send('cart not found');
+    } catch (err) {
+        req.log.error(err);
+        res.status(500).send(err);
     }
+});
 
-    // get the cart
-    redisClient.get(req.params.id, (err, data) => {
-        if(err) {
-            req.log.error('ERROR', err);
-            res.status(500).send(err);
-        } else {
-            if(data == null) {
-                res.status(404).send('cart not found');
-            } else {
-                var cart = JSON.parse(data);
-                var idx;
-                var len = cart.items.length;
-                for(idx = 0; idx < len; idx++) {
-                    if(cart.items[idx].sku == req.params.sku) {
-                        break;
-                    }
-                }
-                if(idx == len) {
-                    // not in list
-                    res.status(404).send('not in cart');
-                } else {
-                    if(qty == 0) {
-                        cart.items.splice(idx, 1);
-                    } else {
-                        cart.items[idx].qty = qty;
-                        cart.items[idx].subtotal = cart.items[idx].price * qty;
-                    }
-                    cart.total = calcTotal(cart.items);
-                    // work out tax
-                    cart.tax = calcTax(cart.total);
-                    saveCart(req.params.id, cart).then((data) => {
-                        res.json(cart);
-                    }).catch((err) => {
-                        req.log.error(err);
-                        res.status(500).send(err);
-                    });
-                }
-            }
+// ADD item
+app.get('/add/:id/:sku/:qty', async (req, res) => {
+    try {
+        const qty = parseInt(req.params.qty);
+        if (isNaN(qty) || qty < 1) {
+            return res.status(400).send('Invalid quantity');
         }
-    });
-});
 
-// add shipping
-app.post('/shipping/:id', (req, res) => {
-    var shipping = req.body;
-    if(shipping.distance === undefined || shipping.cost === undefined || shipping.location == undefined) {
-        req.log.warn('shipping data missing', shipping);
-        res.status(400).send('shipping data missing');
-    } else {
-        // get the cart
-        redisClient.get(req.params.id, (err, data) => {
-            if(err) {
-                req.log.error('ERROR', err);
-                res.status(500).send(err);
-            } else {
-                if(data == null) {
-                    req.log.info('no cart for', req.params.id);
-                    res.status(404).send('cart not found');
-                } else {
-                    var cart = JSON.parse(data);
-                    var item = {
-                        qty: 1,
-                        sku: 'SHIP',
-                        name: 'shipping to ' + shipping.location,
-                        price: shipping.cost,
-                        subtotal: shipping.cost
-                    };
-                    // check shipping already in the cart
-                    var idx;
-                    var len = cart.items.length;
-                    for(idx = 0; idx < len; idx++) {
-                        if(cart.items[idx].sku == item.sku) {
-                            break;
-                        }
-                    }
-                    if(idx == len) {
-                        // not already in cart
-                        cart.items.push(item);
-                    } else {
-                        cart.items[idx] = item;
-                    }
-                    cart.total = calcTotal(cart.items);
-                    // work out tax
-                    cart.tax = calcTax(cart.total);
+        const product = await getProduct(req.params.sku);
+        if (!product) return res.status(404).send('product not found');
 
-                    // save the updated cart
-                    saveCart(req.params.id, cart).then((data) => {
-                        res.json(cart);
-                    }).catch((err) => {
-                        req.log.error(err);
-                        res.status(500).send(err);
-                    });
-                }
-            }
-        });
+        let cartData = await redisClient.get(req.params.id);
+        let cart = cartData ? JSON.parse(cartData) : { total: 0, tax: 0, items: [] };
+
+        const item = {
+            qty,
+            sku: req.params.sku,
+            name: product.name,
+            price: product.price,
+            subtotal: qty * product.price
+        };
+
+        cart.items = mergeList(cart.items, item, qty);
+        cart.total = calcTotal(cart.items);
+        cart.tax = calcTax(cart.total);
+
+        await saveCart(req.params.id, cart);
+        counter.inc(qty);
+
+        res.json(cart);
+    } catch (err) {
+        req.log.error(err);
+        res.status(500).send(err);
     }
 });
+
+// ---------------- FUNCTIONS ----------------
 
 function mergeList(list, product, qty) {
-    var inlist = false;
-    // loop through looking for sku
-    var idx;
-    var len = list.length;
-    for(idx = 0; idx < len; idx++) {
-        if(list[idx].sku == product.sku) {
-            inlist = true;
-            break;
-        }
-    }
-
-    if(inlist) {
-        list[idx].qty += qty;
-        list[idx].subtotal = list[idx].price * list[idx].qty;
+    const existing = list.find(i => i.sku === product.sku);
+    if (existing) {
+        existing.qty += qty;
+        existing.subtotal = existing.qty * existing.price;
     } else {
         list.push(product);
     }
-
     return list;
 }
 
 function calcTotal(list) {
-    var total = 0;
-    for(var idx = 0, len = list.length; idx < len; idx++) {
-        total += list[idx].subtotal;
-    }
-
-    return total;
+    return list.reduce((sum, item) => sum + item.subtotal, 0);
 }
 
 function calcTax(total) {
-    // tax @ 20%
-    return (total - (total / 1.2));
+    return total - (total / 1.2);
 }
 
-function getProduct(sku) {
-    return new Promise((resolve, reject) => {
-        request('http://' + catalogueHost + ':' + cataloguePort +'/product/' + sku, (err, res, body) => {
-            if(err) {
-                reject(err);
-            } else if(res.statusCode != 200) {
-                resolve(null);
-            } else {
-                // return object - body is a string
-                // TODO - catch parse error
-                resolve(JSON.parse(body));
-            }
-        });
-    });
+// AXIOS FIX (replaces request)
+async function getProduct(sku) {
+    try {
+        const res = await axios.get(`http://${catalogueHost}:${cataloguePort}/product/${sku}`);
+        return res.data;
+    } catch (err) {
+        return null;
+    }
 }
 
-function saveCart(id, cart) {
-    logger.info('saving cart', cart);
-    return new Promise((resolve, reject) => {
-        redisClient.setex(id, 3600, JSON.stringify(cart), (err, data) => {
-            if(err) {
-                reject(err);
-            } else {
-                resolve(data);
-            }
-        });
-    });
+async function saveCart(id, cart) {
+    await redisClient.setEx(id, 3600, JSON.stringify(cart));
 }
 
-// connect to Redis
-var redisClient = redis.createClient({
-    host: redisHost
-});
-
-redisClient.on('error', (e) => {
-    logger.error('Redis ERROR', e);
-});
-redisClient.on('ready', (r) => {
-    logger.info('Redis READY', r);
-    redisConnected = true;
-});
-
-// fire it up!
-const port = process.env.CART_SERVER_PORT || '8080';
+// START SERVER
+const port = process.env.CART_SERVER_PORT || 8080;
 app.listen(port, () => {
-    logger.info('Started on port', port);
+    logger.info(`Cart service started on port ${port}`);
 });
-

@@ -4,9 +4,9 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install 
+RUN npm ci --omit=dev 
 
-COPY server.js ./
+COPY . .
 
 # Stage 2: Runtime (Alpine for small size)
 FROM node:18-alpine
