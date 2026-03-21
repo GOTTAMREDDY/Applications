@@ -1,7 +1,7 @@
 networks:
   default:
     external:
-      name: roboshop
+      name: Project
 volumes:
   mongodb: #docker volume create mongodb
   redis:
@@ -10,7 +10,7 @@ volumes:
 services:
   # docker run -d --name mongodb --network=roboshop mongodb:1
   mongodb:
-    build: ./Mongodb
+    build: ./MongoDB
     container_name: mongodb
     volumes:
     - source: mongodb
