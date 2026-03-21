@@ -17,10 +17,7 @@ services:
   # MongoDB
   # -------------------------
   mongodb:
-    build:
-      context: ./mongoDB
-      dockerfile: Dockerfile
-      target: runtime  # optional if multi-stage
+    build: ./MongoDB
     container_name: mongodb
     volumes:
       - mongodb:/data/db
@@ -31,9 +28,7 @@ services:
   # Catalogue
   # -------------------------
   catalogue:
-    build:
-      context: ./catalogue
-      dockerfile: Dockerfile
+    build: ./Catalogue   
     container_name: catalogue
     depends_on:
       - mongodb
@@ -44,9 +39,7 @@ services:
   # Web (Nginx)
   # -------------------------
   web:
-    build:
-      context: ./web
-      dockerfile: Dockerfile
+    build: ./Web
     container_name: web
     ports:
       - "80:80"
@@ -74,9 +67,7 @@ services:
   # User
   # -------------------------
   user:
-    build:
-      context: ./user
-      dockerfile: Dockerfile
+    build: ./User
     container_name: user
     depends_on:
       - redis
@@ -88,9 +79,7 @@ services:
   # Cart
   # -------------------------
   cart:
-    build:
-      context: ./cart
-      dockerfile: Dockerfile
+    build: ./Cart
     container_name: cart
     depends_on:
       - redis
@@ -102,9 +91,7 @@ services:
   # MySQL
   # -------------------------
   mysql:
-    build:
-      context: ./mysql
-      dockerfile: Dockerfile
+    build: ./Mysql
     container_name: mysql
     volumes:
       - mysql:/var/lib/mysql
@@ -115,9 +102,7 @@ services:
   # Shipping
   # -------------------------
   shipping:
-    build:
-      context: ./shipping
-      dockerfile: Dockerfile
+    build: ./Shipping
     container_name: shipping
     depends_on:
       - mysql
@@ -142,9 +127,7 @@ services:
   # Payment
   # -------------------------
   payment:
-    build:
-      context: ./payment
-      dockerfile: Dockerfile
+    build: ./Payment
     container_name: payment
     depends_on:
       - rabbitmq
