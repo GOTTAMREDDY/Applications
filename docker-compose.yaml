@@ -87,8 +87,8 @@ services:
       type: volume
 
   payment:
-    container_name: Payment
-    build: ./payment
+    container_name: payment
+    build: ./Payment
     depends_on:
     - rabbitmq
     - user
