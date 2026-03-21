@@ -10,7 +10,7 @@ COPY pom.xml .
 RUN mvn dependency:go-offline
 
 # Copy source
-COPY src ./src
+COPY . .
 
 # Build
 RUN mvn clean package
