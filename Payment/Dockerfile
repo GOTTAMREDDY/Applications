@@ -1,24 +1,14 @@
-# -------- Stage 1 --------
-FROM python:3.9-slim AS builder
-
-WORKDIR /install
-COPY requirements.txt .
-RUN pip install --prefix=/install -r requirements.txt
-
-# -------- Stage 2 --------
-FROM python:3.9-slim
-
-WORKDIR /app
-
-RUN addgroup --system roboshop && adduser --system --ingroup roboshop roboshop
-
-COPY --from=builder /install /usr/local
-COPY . .
-
-ENV PATH="/usr/local/bin:$PATH"
-
-RUN chown -R roboshop:roboshop /app
-USER roboshop
+FROM python:3.9.18-alpine3.19
 
 EXPOSE 8080
+ENV AMQP_USER=roboshop \
+    AMQP_PASS=roboshop123
+USER root
+WORKDIR /app
+COPY requirements.txt /app/
+RUN apk add python3-dev build-base linux-headers pcre-dev
+RUN pip install -r requirements.txt
+COPY *.py /app/
+COPY payment.ini /app/
+#CMD ["python", "payment.py"]
 CMD ["uwsgi", "--ini", "payment.ini"]
