@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        HUB_REPO = 'mongoDb'
+        HUB_REPO = 'mongodb'
         IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
@@ -26,9 +26,9 @@ pipeline {
             steps {
                 bat '''
                 dir
-                docker build -t mongoDb:%BUILD_NUMBER% .
-                docker tag mongoDb:%BUILD_NUMBER% sadashivareddy/mongoDb:%BUILD_NUMBER%
-                docker push sadashivareddy/mongoDb:%BUILD_NUMBER%
+                docker build -t mongodb:%BUILD_NUMBER% .
+                docker tag mongodb:%BUILD_NUMBER% sadashivareddy/mongodb:%BUILD_NUMBER%
+                docker push sadashivareddy/mongodb:%BUILD_NUMBER%
                 '''
             }
         }
