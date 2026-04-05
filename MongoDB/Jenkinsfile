@@ -32,8 +32,7 @@ pipeline {
             steps {
                 sh '''
                 ls -l
-                cd MongoDB
-
+                cd /Applications/MongoDB
                 docker build -t MongoDb:${BUILD_NUMBER} .
                 docker tag MongoDb:${BUILD_NUMBER} sadashivareddy/MongoDb:${BUILD_NUMBER}
                 docker push sadashivareddy/MongoDb:${BUILD_NUMBER}
