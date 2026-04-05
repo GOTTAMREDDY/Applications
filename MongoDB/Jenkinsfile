@@ -3,11 +3,10 @@ pipeline {
 
     environment {
         HUB_REPO = 'MongoDb'
-        IMAGE_TAG = "%{BUILD_NUMBER}"
+        IMAGE_TAG = '%{BUILD_NUMBER}'
     }
 
     stages {
-
         stage('Checkout Code') {
             steps {
                 git branch: 'main', url: 'https://github.com/GOTTAMREDDY/Applications.git'
@@ -16,13 +15,9 @@ pipeline {
 
         stage('Docker Login') {
             steps {
-                
-                 {
                     bat '''
-                    
                     docker login -u sadashivareddy -p MyDocker@123
                     '''
-                }
             }
         }
 
