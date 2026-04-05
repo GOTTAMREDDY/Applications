@@ -1,0 +1,72 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_REGION = "us-east-1"
+        ACCOUNT_ID = "123456789012"
+        ECR_REPO = "my-app"
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        ECR_URI = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
+    }
+
+    stages {
+
+        stage('Checkout Code') {
+            steps {
+                git branch: 'main', url: 'https://github.com/your-repo.git'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh """
+                docker build -t ${ECR_REPO}:${IMAGE_TAG} .
+                docker tag ${ECR_REPO}:${IMAGE_TAG} ${ECR_URI}:${IMAGE_TAG}
+                """
+            }
+        }
+
+        stage('Login to ECR') {
+            steps {
+                sh """
+                aws ecr get-login-password --region ${AWS_REGION} \
+                | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+                """
+            }
+        }
+
+        stage('Push Image to ECR') {
+            steps {
+                sh """
+                docker push ${ECR_URI}:${IMAGE_TAG}
+                """
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh """
+                kubectl set image deployment/my-app \
+                my-app=${ECR_URI}:${IMAGE_TAG}
+                """
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                sh """
+                kubectl rollout status deployment/my-app
+                """
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Deployment Successful!"
+        }
+        failure {
+            echo "Pipeline Failed!"
+        }
+    }
+}
