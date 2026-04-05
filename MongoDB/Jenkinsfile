@@ -2,71 +2,49 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = "us-east-1"
-        ACCOUNT_ID = "123456789012"
-        ECR_REPO = "my-app"
+        // AWS_REGION = "us-east-1"
+        // ACCOUNT_ID = "123456789012"
+        HUB_REPO = 'MongoDb'
         IMAGE_TAG = "${BUILD_NUMBER}"
-        ECR_URI = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
+    // ECR_URI = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${HUB_REPO}"
     }
 
     stages {
-
         stage('Checkout Code') {
             steps {
-                git branch: 'main', url: 'https://github.com/your-repo.git'
+                git branch: 'main', url: 'https://github.com/GOTTAMREDDY/Applications.git'
             }
         }
-
+    }
+    stage('Docker Login') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'Docker_details',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh '''
+                    echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                    '''
+                }
+            }
         stage('Build Docker Image') {
             steps {
                 sh """
-                docker build -t ${ECR_REPO}:${IMAGE_TAG} .
-                docker tag ${ECR_REPO}:${IMAGE_TAG} ${ECR_URI}:${IMAGE_TAG}
-                """
-            }
-        }
+                docker build -t ${HUB_REPO}:${IMAGE_TAG} .
+                docker tag ${HUB_REPO}:${IMAGE_TAG} sadashivareddy/${HUB_REPO}:${IMAGE_TAG}
 
-        stage('Login to ECR') {
-            steps {
-                sh """
-                aws ecr get-login-password --region ${AWS_REGION} \
-                | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
-                """
-            }
-        }
-
-        stage('Push Image to ECR') {
-            steps {
-                sh """
-                docker push ${ECR_URI}:${IMAGE_TAG}
-                """
-            }
-        }
-
-        stage('Deploy to Kubernetes') {
-            steps {
-                sh """
-                kubectl set image deployment/my-app \
-                my-app=${ECR_URI}:${IMAGE_TAG}
-                """
-            }
-        }
-
-        stage('Verify Deployment') {
-            steps {
-                sh """
-                kubectl rollout status deployment/my-app
+                docker push sadashivareddy/${HUB_REPO}:${IMAGE_TAG}
                 """
             }
         }
     }
-
     post {
         success {
-            echo "Deployment Successful!"
+            echo 'Deployment Successful!'
         }
         failure {
-            echo "Pipeline Failed!"
+            echo 'Pipeline Failed!'
         }
     }
 }
