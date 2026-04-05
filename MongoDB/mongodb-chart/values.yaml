@@ -1,0 +1,8 @@
+image:
+  repository: sadashivareddy/mongodb
+  tag: "16"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 27017
