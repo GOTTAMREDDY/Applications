@@ -28,8 +28,8 @@ pipeline {
                 dir
                 cd MongoDB
                 docker build -t mongodb:%BUILD_NUMBER% .
-                docker tag mongodb:%BUILD_NUMBER% sadashivareddy/mongodb:%BUILD_NUMBER%
-                docker push sadashivareddy/mongodb:%BUILD_NUMBER%
+                docker tag mongodb:%BUILD_NUMBER% mongodb:%BUILD_NUMBER%
+                docker push mongodb:%BUILD_NUMBER%
                 '''
             }
         }
