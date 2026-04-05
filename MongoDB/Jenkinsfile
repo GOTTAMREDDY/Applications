@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         HUB_REPO = 'MongoDb'
-        IMAGE_TAG = "${BUILD_NUMBER}"
+        IMAGE_TAG = "%{BUILD_NUMBER}"
     }
 
     stages {
@@ -22,7 +22,7 @@ pipeline {
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
                     bat '''
-                    echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                    echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin
                     '''
                 }
             }
@@ -33,9 +33,9 @@ pipeline {
                 bat '''
                 ls -l
                 cd /Applications/MongoDB
-                docker build -t MongoDb:${BUILD_NUMBER} .
-                docker tag MongoDb:${BUILD_NUMBER} sadabativareddy/MongoDb:${BUILD_NUMBER}
-                docker pubat sadabativareddy/MongoDb:${BUILD_NUMBER}
+                docker build -t MongoDb:%{BUILD_NUMBER}% .
+                docker tag MongoDb:%{BUILD_NUMBER}% sadashivareddy/MongoDb:%{BUILD_NUMBER}%
+                docker push sadashivareddy/MongoDb:%{BUILD_NUMBER}%
                 '''
             }
         }
