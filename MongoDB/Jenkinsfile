@@ -31,6 +31,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh """
+                cd /MongoDB
                 docker build -t ${HUB_REPO}:${IMAGE_TAG} .
                 docker tag ${HUB_REPO}:${IMAGE_TAG} sadashivareddy/${HUB_REPO}:${IMAGE_TAG}
 
