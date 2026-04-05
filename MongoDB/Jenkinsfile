@@ -6,6 +6,7 @@ pipeline {
         IMAGE_TAG = "${BUILD_NUMBER}"
         DOCKER_USER = "sadashivareddy"
         RELEASE_NAME = "mongodb-release"
+        KUBECONFIG = 'C:\\Users\\gott\\.kube\\config'
     }
 
     stages {
