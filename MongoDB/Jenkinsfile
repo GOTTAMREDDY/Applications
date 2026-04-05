@@ -21,21 +21,21 @@ pipeline {
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
-                    sh '''
+                    bat '''
                     echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
                     '''
                 }
             }
         }
 
-        stage('Build & Push Image') {
+        stage('Build & Pubat Image') {
             steps {
-                sh '''
+                bat '''
                 ls -l
                 cd /Applications/MongoDB
                 docker build -t MongoDb:${BUILD_NUMBER} .
-                docker tag MongoDb:${BUILD_NUMBER} sadashivareddy/MongoDb:${BUILD_NUMBER}
-                docker push sadashivareddy/MongoDb:${BUILD_NUMBER}
+                docker tag MongoDb:${BUILD_NUMBER} sadabativareddy/MongoDb:${BUILD_NUMBER}
+                docker pubat sadabativareddy/MongoDb:${BUILD_NUMBER}
                 '''
             }
         }
