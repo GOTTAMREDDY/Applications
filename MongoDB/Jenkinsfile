@@ -2,11 +2,12 @@ pipeline {
     agent any
 
     environment {
-        HUB_REPO = 'MongoDb'
-        IMAGE_TAG = '%{BUILD_NUMBER}'
+        HUB_REPO = 'mongoDb'
+        IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
     stages {
+
         stage('Checkout Code') {
             steps {
                 git branch: 'main', url: 'https://github.com/GOTTAMREDDY/Applications.git'
@@ -15,18 +16,19 @@ pipeline {
 
         stage('Docker Login') {
             steps {
-                    bat '''
-                    docker login -u sadashivareddy -p MyDocker@123
-                    '''
+                bat '''
+                docker login -u sadashivareddy -p MyDocker@123
+                '''
             }
         }
 
-        stage('Build & Pubat Image') {
+        stage('Build & Push Image') {
             steps {
                 bat '''
-                docker build -t MongoDb:%{IMAGE_TAG}% .
-                docker tag MongoDb:%{IMAGE_TAG}% sadashivareddy/MongoDb:%{IMAGE_TAG}%
-                docker push sadashivareddy/MongoDb:%{IMAGE_TAG}%
+                dir
+                docker build -t mongoDb:%BUILD_NUMBER% .
+                docker tag mongoDb:%BUILD_NUMBER% sadashivareddy/mongoDb:%BUILD_NUMBER%
+                docker push sadashivareddy/mongoDb:%BUILD_NUMBER%
                 '''
             }
         }
