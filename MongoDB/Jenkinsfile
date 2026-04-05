@@ -4,6 +4,8 @@ pipeline {
     environment {
         HUB_REPO = 'mongodb'
         IMAGE_TAG = "${BUILD_NUMBER}"
+        DOCKER_USER = "sadashivareddy"
+        RELEASE_NAME = "mongodb-release"
     }
 
     stages {
@@ -17,7 +19,7 @@ pipeline {
         stage('Docker Login') {
             steps {
                 bat '''
-                docker login -u sadashivareddy -p MyDocker@123
+                docker login -u sadashivareddy  -p MyDocker@123
                 '''
             }
         }
@@ -25,11 +27,23 @@ pipeline {
         stage('Build & Push Image') {
             steps {
                 bat '''
-                dir
                 cd MongoDB
+
                 docker build -t mongodb:%BUILD_NUMBER% .
-                docker tag mongodb:%BUILD_NUMBER% mongodb:%BUILD_NUMBER%
-                docker push mongodb:%BUILD_NUMBER%
+                docker tag mongodb:%BUILD_NUMBER% sadashivareddy/mongodb:%BUILD_NUMBER%
+                docker push sadashivareddy/mongodb:%BUILD_NUMBER%
+                '''
+            }
+        }
+
+        stage('Deploy using Helm') {
+            steps {
+                bat '''
+                cd MongoDB\\mongodb-chart
+
+                helm upgrade --install mongodb-release . ^
+                --set image.repository=sadashivareddy/mongodb ^
+                --set image.tag=%BUILD_NUMBER%
                 '''
             }
         }
