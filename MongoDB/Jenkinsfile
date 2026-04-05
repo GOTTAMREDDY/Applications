@@ -2,21 +2,19 @@ pipeline {
     agent any
 
     environment {
-        // AWS_REGION = "us-east-1"
-        // ACCOUNT_ID = "123456789012"
         HUB_REPO = 'MongoDb'
         IMAGE_TAG = "${BUILD_NUMBER}"
-    // ECR_URI = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${HUB_REPO}"
     }
 
     stages {
+
         stage('Checkout Code') {
             steps {
                 git branch: 'main', url: 'https://github.com/GOTTAMREDDY/Applications.git'
             }
         }
-    }
-    stage('Docker Login') {
+
+        stage('Docker Login') {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'Docker_details',
@@ -28,18 +26,22 @@ pipeline {
                     '''
                 }
             }
-        stage('Build Docker Image') {
-            steps {
-                sh """
-                cd /MongoDB
-                docker build -t ${HUB_REPO}:${IMAGE_TAG} .
-                docker tag ${HUB_REPO}:${IMAGE_TAG} sadashivareddy/${HUB_REPO}:${IMAGE_TAG}
+        }
 
-                docker push sadashivareddy/${HUB_REPO}:${IMAGE_TAG}
-                """
+        stage('Build & Push Image') {
+            steps {
+                sh '''
+                ls -l
+                cd MongoDB
+
+                docker build -t MongoDb:${BUILD_NUMBER} .
+                docker tag MongoDb:${BUILD_NUMBER} sadashivareddy/MongoDb:${BUILD_NUMBER}
+                docker push sadashivareddy/MongoDb:${BUILD_NUMBER}
+                '''
             }
         }
     }
+
     post {
         success {
             echo 'Deployment Successful!'
